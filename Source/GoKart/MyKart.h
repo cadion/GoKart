@@ -63,8 +63,11 @@ private:
 
 	UFUNCTION()
 	void OnRep_ReplicatedTransform();
-	
+
+	UPROPERTY(Replicated)
 	float Throttle;
+
+	UPROPERTY(Replicated)
 	float SteeringThrow;
 
 	UPROPERTY(EditAnywhere)

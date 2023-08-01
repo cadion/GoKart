@@ -31,6 +31,8 @@ void AMyKart::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AMyKart, ReplicatedTransform);
 	DOREPLIFETIME(AMyKart, Velocity);
+	DOREPLIFETIME(AMyKart, Throttle);
+	DOREPLIFETIME(AMyKart, SteeringThrow);
 }
 
 
