@@ -29,8 +29,7 @@ void AMyKart::BeginPlay()
 void AMyKart::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AMyKart, ReplicatedTransform);
-	DOREPLIFETIME(AMyKart, Velocity);
+	DOREPLIFETIME(AMyKart, ServerState);
 	DOREPLIFETIME(AMyKart, Throttle);
 	DOREPLIFETIME(AMyKart, SteeringThrow);
 }
@@ -58,6 +57,18 @@ void AMyKart::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (IsLocallyControlled())
+	{
+		FGoKartMove Move;
+		Move.DeltaTime = DeltaTime;
+		Move.SteeringThrow = SteeringThrow;
+		Move.Throttle = Throttle;
+		//TODO: Set Time
+
+		Server_SendMove(Move);
+	}
+	
+	
 	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle;
 	Force += GetAirResistance();
 	Force += GetRollingResistance();
@@ -72,7 +83,8 @@ void AMyKart::Tick(float DeltaTime)
 
 	if(HasAuthority())
 	{
-		ReplicatedTransform = GetActorTransform();
+		ServerState.Transform = GetActorTransform();
+		ServerState.Velocity = Velocity;
 	}
 	
 	ENetRole tempRole = GetLocalRole();
@@ -80,9 +92,10 @@ void AMyKart::Tick(float DeltaTime)
 }
 
 
-void AMyKart::OnRep_ReplicatedTransform()
+void AMyKart::OnRep_ServerState()
 {
-	SetActorTransform(ReplicatedTransform);
+	SetActorTransform(ServerState.Transform);
+	Velocity = ServerState.Velocity;
 }
 
 // Called to bind functionality to input
@@ -131,35 +144,24 @@ void AMyKart::UpdateLocationFromVelocity(float DeltaTime)
 void AMyKart::MoveForward(float Value)
 {
 	Throttle = Value;
-	Server_MoveForward(Value);
 }
 
 void AMyKart::MoveRight(float Value)
 {
 	SteeringThrow = Value;
-	Server_MoveRight(Value);
 }
 
-
-void AMyKart::Server_MoveForward_Implementation(float Value)
+void AMyKart::Server_SendMove_Implementation(FGoKartMove Move)
 {
-	Throttle = Value;
+	Throttle = Move.Throttle;
+	SteeringThrow = Move.SteeringThrow;
 }
 
-bool AMyKart::Server_MoveForward_Validate(float Value)
+bool AMyKart::Server_SendMove_Validate(FGoKartMove Move)
 {
-	return FMath::Abs(Value) <= 1;
+	return FMath::Abs(Move.Throttle) <= 1 && FMath::Abs(Move.SteeringThrow) <= 1;
 }
 
 
-void AMyKart::Server_MoveRight_Implementation(float Value)
-{
-	SteeringThrow = Value;
-}
-
-bool AMyKart::Server_MoveRight_Validate(float Value)
-{
-	return FMath::Abs(Value) <= 1;
-}
 
 
