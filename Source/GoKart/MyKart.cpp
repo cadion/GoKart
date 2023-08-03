@@ -69,23 +69,7 @@ void AMyKart::Tick(float DeltaTime)
 	}
 	
 	
-	FVector Force = GetActorForwardVector() * MaxDrivingForce * Throttle;
-	Force += GetAirResistance();
-	Force += GetRollingResistance();
-	FVector Acceleration = Force / Mass;
-	
-	Velocity = Velocity + Acceleration * DeltaTime;
-	
 
-	ApplyRotation(DeltaTime);
-
-	UpdateLocationFromVelocity(DeltaTime);
-
-	if(HasAuthority())
-	{
-		ServerState.Transform = GetActorTransform();
-		ServerState.Velocity = Velocity;
-	}
 	
 	ENetRole tempRole = GetLocalRole();
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(tempRole), this, FColor::White, DeltaTime);
@@ -106,6 +90,21 @@ void AMyKart::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	PlayerInputComponent->BindAxis("MoveRight", this, &AMyKart::MoveRight);
 }
 
+void AMyKart::SimulateMove(FGoKartMove Move)
+{
+	FVector Force = GetActorForwardVector() * MaxDrivingForce * Move.Throttle;
+	Force += GetAirResistance();
+	Force += GetRollingResistance();
+	FVector Acceleration = Force / Mass;
+	
+	Velocity = Velocity + Acceleration * Move.DeltaTime;
+	
+
+	ApplyRotation(Move.DeltaTime, Move.SteeringThrow);
+
+	UpdateLocationFromVelocity(Move.DeltaTime);
+}
+
 FVector AMyKart::GetAirResistance() const
 {
 	return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
@@ -118,7 +117,7 @@ FVector AMyKart::GetRollingResistance() const
 	return -Velocity.GetSafeNormal() * RollingResistanceCoefficient * NormalForce;
 }
 
-void AMyKart::ApplyRotation(float DeltaTime)
+void AMyKart::ApplyRotation(float DeltaTime, float SteeringThrow)
 {
 	float DeltaLocation = Velocity.Dot(GetActorForwardVector()) * DeltaTime;
 	float RotationAngle = DeltaLocation / MinTurningRadius * SteeringThrow;
@@ -153,8 +152,11 @@ void AMyKart::MoveRight(float Value)
 
 void AMyKart::Server_SendMove_Implementation(FGoKartMove Move)
 {
-	Throttle = Move.Throttle;
-	SteeringThrow = Move.SteeringThrow;
+	SimulateMove(Move);
+
+	ServerState.LastMoves = Move;
+	ServerState.Transform = GetActorTransform();
+	ServerState.Velocity = Velocity;
 }
 
 bool AMyKart::Server_SendMove_Validate(FGoKartMove Move)
